@@ -295,6 +295,74 @@ test("()", "ä", "[]", ~/:(\w):/);
 test("a", "É", "b", ~/:(é):/i);
 test("a", "é", "b", ~/:(É):/i);
 
+// boundary conditions
+function hex(str:String):String {
+	return try haxe.io.Bytes.ofString(str).toHex() catch (e:Dynamic) null;
+}
+function isValid(hex:String):Bool {
+	return try {
+		var bytes = haxe.io.Bytes.ofHex(hex);
+		bytes.getString(0, bytes.length);
+		true;
+	} catch (e:Dynamic) false;
+}
+
+hex("\u0000") == "00";
+hex("\u0001") == "01";
+hex("\u007f") == "7f";
+hex("\u0080") == "c280";
+
+hex("\u07ff") == "dfbf";
+hex("\u0800") == "e0a080";
+hex("\ud7ff") == "ed9fbf";
+
+// PUA codepoints are valid, although they do not have a character assigned
+hex("\ue000") == "ee8080";
+
+// last valid codepoint on the BMP
+hex("\ufffd") == "efbfbd";
+
+// incomplete or overlong sequences
+// http://www.unicode.org/versions/corrigendum1.html
+isValid("c0") == false;
+isValid("c07f") == false;
+isValid("c080") == false;
+isValid("c1") == false;
+isValid("c17f") == false;
+isValid("c180") == false;
+
+isValid("e0") == false;
+isValid("e0a0") == false;
+isValid("e0a000") == false;
+isValid("e08080") == false;
+isValid("e09f80") == false;
+isValid("e1") == false;
+isValid("e180") == false;
+isValid("e17f80") == false;
+isValid("e1807f") == false;
+
+// TODO: more invalid sequences outside the BMP
+
+// last two codepoints on any plane are invalid
+// but the encoding is valid UTF-8
+isValid("efbfbe") == true; // U+FFFD
+isValid("efbfbf") == true; // U+FFFE
+
+// non-BMP (disabled for the time being)
+// U+10000 F0 90 80 80
+// U+1FFFF F0 9F BF BF
+// U+FFFFF F3 BF BF BF
+// U+100000 F4 80 80 80
+// U+10FFFF F4 8F BF BF
+// U+1F602 F0 9F 98 82
+// U+1F604 F0 9F 98 84
+// U+1F619 F0 9F 98 99
+
+// NFC / NFD
+// U+0227        C8 A7 (NFC)
+// U+0061 U+0307 61 CC 87 (NFD)
+// should be equal but we need Unicode normalisation first
+
 #else
 1 == 1;
 #end
